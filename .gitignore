@@ -1,0 +1,21 @@
+# dependencies (the host half imports @deepseek-ai/schemastery for its config schema)
+node_modules/
+
+# local scratch / backup copies that should never be published
+*.bak
+*.bak-*
+_临时文件/
+_verify/
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# logs
+*.log
+
+# build scratch for the C# helper (the committed binary lives in bin/)
+obj/

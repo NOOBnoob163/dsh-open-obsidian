@@ -1,0 +1,51 @@
+{
+  "name": "dsh-open-obsidian",
+  "version": "0.9.1",
+  "description": "DeepSeek Harness plugin: automatically opens the Obsidian vault a conversation is working in — silently, without stealing focus. (A DSH plugin, NOT an Obsidian plugin.)",
+  "private": false,
+  "license": "MIT",
+  "author": "NOOBnoob163",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NOOBnoob163/dsh-open-obsidian.git"
+  },
+  "homepage": "https://github.com/NOOBnoob163/dsh-open-obsidian#readme",
+  "bugs": {
+    "url": "https://github.com/NOOBnoob163/dsh-open-obsidian/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh",
+    "obsidian",
+    "vault",
+    "windows",
+    "productivity"
+  ],
+  "os": [
+    "win32"
+  ],
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/",
+    "bin/",
+    "src/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  }
+}
