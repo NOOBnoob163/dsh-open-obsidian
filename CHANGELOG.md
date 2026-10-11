@@ -4,6 +4,36 @@ All notable changes to this plugin are documented here.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-10-11
+
+### Added
+- **`dsh.bundle` declaration, so the plugin installs and activates in one command** —
+  `dsh plugin add github:NOOBnoob163/dsh-open-obsidian` now mounts it automatically; the
+  hand-written `insert` block in a profile's `cordis.patch.yml` is no longer required.
+  (It still works that way if you prefer to mount it by hand.)
+- `screenshots.json` plus two panel screenshots under `assets/`, so storefronts can show the
+  settings panel (light and dark).
+- README: a short note that the author has no programming background and the code was written
+  with DSH's own AI assistant.
+
+### Changed
+- **README restructured around why the plugin exists**: opening the vault is what makes the
+  user's *sync* plugin start running, so the files the agent edits actually get synced. The
+  install section was rewritten for the one-command flow, and the manual route moved into a
+  collapsible block. Both languages updated.
+
+### Fixed
+- README claimed the package "does **not** ship a `dsh.bundle` declaration" — true until
+  0.10.0, and actively misleading after it. Corrected in both languages.
+
+### Notes
+- No runtime code changed in this release. The behaviour suite (12) and the panel suite (28)
+  both still pass.
+- The screenshots are rendered from the **real** `lib/client.js` (via `test/render-screenshot.mjs`,
+  which drives the panel with a fake React shim and demo data), not hand-drawn, so they cannot
+  drift from the shipped UI without the render script noticing. They contain no real vault
+  names or paths.
+
 ## [0.9.1] — 2026-10-09
 
 ### Changed

@@ -10,7 +10,11 @@ English speakers: [jump to the English version](#english).
 ## 它做什么
 
 当一个 DSH 会话的工作目录位于某个 Obsidian 库文件夹内时，你在那个会话里**发出第一条消息**
-的那一刻，插件会帮你在 Obsidian 里打开这个库。
+的那一刻，插件会帮你在 Obsidian 里打开这个库——**这样你装的同步插件（例如坚果云同步、
+Obsidian Sync、Git 插件）就会开始工作，AI 在库里改的东西才能真正同步出去。**
+
+这是它解决的实际问题：AI 在库里写了东西，可 Obsidian 没开着，同步就不会跑——等到
+你哪天自己打开 Obsidian，改动才姗姗来迟。现在库会在对话开始时就打开，同步从那一刻起就在走。
 
 它尽可能不打扰你：
 
@@ -21,6 +25,8 @@ English speakers: [jump to the English version](#english).
 全程在 DSH 进程内完成、不经过模型：**零 token、零轮询。**
 
 这个插件的设置面板是**中文界面**（本来就是给中文用户做的），所以这份说明也以中文为主。
+
+> **关于作者**：本插件的作者没有编程背景，代码是在 DSH 的 AI 助手协助下完成的。
 
 ---
 
@@ -36,10 +42,19 @@ English speakers: [jump to the English version](#english).
 
 ## 安装
 
-本包**没有**声明 `dsh.bundle`，所以只跑 `dsh plugin add` 会把它作为普通依赖装进去，
-但**不会自动启用**。需要在你的 profile 里手工挂载一次。
+一条命令装好：
 
-### 1. 把文件放进 profile 的插件目录
+```sh
+dsh plugin add github:NOOBnoob163/dsh-open-obsidian
+```
+
+本包声明了 `dsh.bundle`，所以 DSH 装完会**自动启用**它，不需要手工改任何配置。
+**装好后冷启动一次 DSH**（刷新页面不够），然后到 **设置 → Obsidian 助手** 里勾选你要管的库。
+
+<details>
+<summary>也可以手工装（不进 bundle 机制）</summary>
+
+把仓库放进 profile 的插件目录：
 
 ```sh
 # 如果你用的不是默认的 "desktop" profile，把 <profile> 换成你自己的
@@ -47,32 +62,33 @@ git clone https://github.com/NOOBnoob163/dsh-open-obsidian.git \
   "%USERPROFILE%\.dsh\profiles\<profile>\plugins\dsh-open-obsidian"
 ```
 
-或者下载 ZIP 解压，让 `package.json` 正好位于
-`…\.dsh\profiles\<profile>\plugins\dsh-open-obsidian\` 里面。
+然后**二选一**：
 
-### 2. 挂载
+- **走标准方式**：把 `dsh-open-obsidian` 加进 profile `package.json` 的
+  `dsh.profile.bundles` 列表，由它自带的 `cordis.patch.yml` 负责挂载；**或者**
+- **手工挂载**：在 `%USERPROFILE%\.dsh\profiles\<profile>\cordis.patch.yml` 里加一段：
 
-在 `%USERPROFILE%\.dsh\profiles\<profile>\cordis.patch.yml` 里加上这一段：
+  ```yaml
+    # Obsidian 助手（本地插件 plugins/dsh-open-obsidian）
+    - insert:
+        - id: obsidian-launch
+          name: 'dsh-open-obsidian'
+  ```
 
-```yaml
-  # Obsidian 助手（本地插件 plugins/dsh-open-obsidian）
-  - insert:
-      - id: obsidian-launch
-        name: 'dsh-open-obsidian'
-        config:
-          enabled: true
-          vaultPaths: []
-          command: ''
-```
+  （`config` 段可以省略——实际设置存在
+  `%USERPROFILE%\.dsh\storages\dsh-open-obsidian.json`，面板上改的就是它。）
 
-### 3. 重启 DSH
+</details>
 
-**新增插件条目必须冷启动 DSH 才生效**，刷新页面不够。
-
-### 4. 配置
+### 配置
 
 打开 **设置 → Obsidian 助手**，勾选你想让它管的库。
 **一个都不勾 = 完全不触发。**
+
+### 长这样
+
+![设置面板（浅色）](assets/panel-light.png)
+![设置面板（深色）](assets/panel-dark.png)
 
 ---
 
@@ -186,6 +202,11 @@ When a DSH conversation's working directory sits inside an Obsidian vault folder
 opens that vault in Obsidian for you — automatically, once per conversation, when you send your
 first message.
 
+**Why that matters:** opening the vault is what makes your sync plugin (Nutstore sync, Obsidian
+Sync, a Git plugin, …) start running, so the files the agent edits actually get synced. Without
+it, the agent writes into the vault while Obsidian is closed, nothing syncs, and the changes
+only travel the next time you happen to open Obsidian yourself.
+
 It is deliberately quiet about it:
 
 - If the vault is **already open**, nothing happens — no new window, no focus jump.
@@ -194,6 +215,9 @@ It is deliberately quiet about it:
 - If Obsidian is **not running**, it starts normally (the window appearing is the point).
 
 Everything runs inside the DSH process, outside the model loop: **zero tokens, zero polling.**
+
+> **About the author:** the author has no programming background; the code was written with the
+> help of DSH's own AI assistant.
 
 ## Requirements
 
@@ -205,10 +229,20 @@ Everything runs inside the DSH process, outside the model loop: **zero tokens, z
 
 ## Install
 
-This package does **not** ship a `dsh.bundle` declaration, so `dsh plugin add` alone will install
-it as a plain dependency but **will not activate it**. You have to mount it in your profile once.
+One command:
 
-### 1. Put the files in your profile's plugins folder
+```sh
+dsh plugin add github:NOOBnoob163/dsh-open-obsidian
+```
+
+This package declares `dsh.bundle`, so DSH **activates it automatically** — no manual config
+editing. **Cold-restart DSH once** afterwards (reloading the window is not enough), then pick
+your vaults under **Settings → Obsidian 助手**.
+
+<details>
+<summary>Manual install (bypassing the bundle mechanism)</summary>
+
+Put the repo in your profile's plugins folder:
 
 ```sh
 # adjust <profile> if you are not on the default "desktop" profile
@@ -216,32 +250,31 @@ git clone https://github.com/NOOBnoob163/dsh-open-obsidian.git \
   "%USERPROFILE%\.dsh\profiles\<profile>\plugins\dsh-open-obsidian"
 ```
 
-Or download the ZIP and unpack it so that `package.json` sits directly inside
-`…\.dsh\profiles\<profile>\plugins\dsh-open-obsidian\`.
-
-### 2. Mount it
-
-Add this entry to `%USERPROFILE%\.dsh\profiles\<profile>\cordis.patch.yml`:
+Then either add `dsh-open-obsidian` to `dsh.profile.bundles` in your profile `package.json`
+(its own `cordis.patch.yml` then mounts it), or mount it by hand in
+`%USERPROFILE%\.dsh\profiles\<profile>\cordis.patch.yml`:
 
 ```yaml
   # Obsidian launcher (local plugin plugins/dsh-open-obsidian)
   - insert:
       - id: obsidian-launch
         name: 'dsh-open-obsidian'
-        config:
-          enabled: true
-          vaultPaths: []
-          command: ''
 ```
 
-### 3. Restart DSH
+(The `config:` block can be omitted — the real settings live in
+`%USERPROFILE%\.dsh\storages\dsh-open-obsidian.json`, which is what the panel edits.)
 
-**A new plugin entry only takes effect after a cold restart** — reloading the window is not enough.
+</details>
 
-### 4. Configure
+### Configure
 
 Open **Settings → Obsidian 助手** and tick the vaults you want this plugin to manage.
 Until you tick at least one vault, the plugin never triggers.
+
+### What it looks like
+
+![Settings panel (light)](assets/panel-light.png)
+![Settings panel (dark)](assets/panel-dark.png)
 
 ## Settings
 

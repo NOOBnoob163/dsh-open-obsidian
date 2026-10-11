@@ -1,6 +1,6 @@
 {
   "name": "dsh-open-obsidian",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "DSH 插件：会话在 Obsidian 库里工作时，自动帮你打开那个库——安静地打开，不抢焦点。（是 DSH 插件，不是 Obsidian 插件）",
   "private": false,
   "license": "MIT",
@@ -36,7 +36,9 @@
     "lib/",
     "bin/",
     "src/",
+    "assets/",
     "cordis.patch.yml",
+    "screenshots.json",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
