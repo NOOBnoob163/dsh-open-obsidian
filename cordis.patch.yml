@@ -1,0 +1,3 @@
+- insert:
+    - id: obsidian-launch
+      name: 'dsh-open-obsidian'
