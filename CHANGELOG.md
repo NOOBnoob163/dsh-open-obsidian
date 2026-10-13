@@ -11,10 +11,9 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/), and 
   `dsh plugin add …` exits immediately with
   `error: required option '--profile <name>' not specified`, so the one-command install could
   never succeed as written. Both the Chinese and English install sections now read
-  `dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian`, and note two things
-  the command assumes: `dsh` is on PATH (the desktop app adds it through
-  **Manage dsh Command… → Install**), and DSH is closed while installing, since the desktop
-  profile is locked by the running app.
+  `dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian`, and a one-line note
+  covers the case where `dsh` is not on PATH (the desktop app adds it through
+  **Manage dsh Command… → Install**).
 - The command quoted in the 0.10.0 entry below was corrected for the same reason.
 - Documentation only; no runtime code changed.
 
