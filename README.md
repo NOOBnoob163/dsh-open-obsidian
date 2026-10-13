@@ -45,8 +45,12 @@ Obsidian Sync、Git 插件）就会开始工作，AI 在库里改的东西才能
 一条命令装好：
 
 ```sh
-dsh plugin add github:NOOBnoob163/dsh-open-obsidian
+dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian
 ```
+
+`--profile` 是必填项，用来指定插件装进哪个 profile；桌面版用 `desktop`。
+（`dsh` 命令不在 PATH 里的话，先在应用标题栏的 **应用** 菜单里点 **管理 dsh 命令…** → **安装**。
+跑这条命令前请先**完全退出 DSH**。）
 
 本包声明了 `dsh.bundle`，所以 DSH 装完会**自动启用**它，不需要手工改任何配置。
 **装好后冷启动一次 DSH**（刷新页面不够），然后到 **设置 → Obsidian 助手** 里勾选你要管的库。
@@ -232,8 +236,13 @@ Everything runs inside the DSH process, outside the model loop: **zero tokens, z
 One command:
 
 ```sh
-dsh plugin add github:NOOBnoob163/dsh-open-obsidian
+dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian
 ```
+
+`--profile` is required: it selects which profile receives the plugin, and `desktop` is the
+desktop app's profile. (If `dsh` is not on your PATH, add it from the app's title bar:
+**应用** menu → **管理 dsh 命令…** (Manage dsh Command…) → **安装** (Install).
+Quit DSH completely before running the command.)
 
 This package declares `dsh.bundle`, so DSH **activates it automatically** — no manual config
 editing. **Cold-restart DSH once** afterwards (reloading the window is not enough), then pick

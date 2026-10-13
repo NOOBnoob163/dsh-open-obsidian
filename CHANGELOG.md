@@ -4,13 +4,27 @@ All notable changes to this plugin are documented here.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **The documented install command was missing the required `--profile` argument.**
+  `dsh plugin add …` exits immediately with
+  `error: required option '--profile <name>' not specified`, so the one-command install could
+  never succeed as written. Both the Chinese and English install sections now read
+  `dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian`, and note two things
+  the command assumes: `dsh` is on PATH (the desktop app adds it through
+  **Manage dsh Command… → Install**), and DSH is closed while installing, since the desktop
+  profile is locked by the running app.
+- The command quoted in the 0.10.0 entry below was corrected for the same reason.
+- Documentation only; no runtime code changed.
+
 ## [0.10.0] — 2026-10-11
 
 ### Added
 - **`dsh.bundle` declaration, so the plugin installs and activates in one command** —
-  `dsh plugin add github:NOOBnoob163/dsh-open-obsidian` now mounts it automatically; the
-  hand-written `insert` block in a profile's `cordis.patch.yml` is no longer required.
-  (It still works that way if you prefer to mount it by hand.)
+  `dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian` now mounts it
+  automatically; the hand-written `insert` block in a profile's `cordis.patch.yml` is no longer
+  required. (It still works that way if you prefer to mount it by hand.)
 - `screenshots.json` plus two panel screenshots under `assets/`, so storefronts can show the
   settings panel (light and dark).
 - README: a short note that the author has no programming background and the code was written
