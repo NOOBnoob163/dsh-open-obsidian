@@ -53,8 +53,14 @@ const resetCalls = () => { fetchCalls.length = 0; };
 
 // --------------------------------------------------------------- fake React
 // Hook order in the panel component:
-// 0 loading, 1 enabled, 2 vaults, 3 command, 4 skipOpen, 5 silentOpen, 6 busy,
-// 7 message, 8 error, 9 lastDecision, 10 logPath.
+// 0 loading, 1 enabled, 2 vaults, 3 command, 4 skipOpen, 5 silentOpen,
+// 6 writeLock, 7 busy, 8 message, 9 error, 10 lastDecision, 11 logPath.
+//
+// ⚠️ These indices mirror the React.useState call order in lib/client.js. When a
+// switch is inserted in the middle (writeLock was, in 0.11.0), every index after
+// it shifts — reading a stale index silently yields the wrong value, which looks
+// like a broken panel rather than a stale test. Re-check this list whenever a
+// state hook is added or removed.
 const HOOK_VALUES = {
   0: false,
   1: true,
@@ -65,17 +71,23 @@ const HOOK_VALUES = {
   3: "",
   4: true,
   5: true,
-  6: false,
-  7: null,
+  6: true,
+  7: false,
   8: null,
-  9: {
+  9: null,
+  10: {
     at: "2026-10-04T15:00:00.000Z",
     kind: "open",
     vault: VAULT_ON,
     reason: "user-message",
   },
-  10: "C:\\Users\\x\\.dsh\\logs\\dsh-open-obsidian\\decisions.log",
+  11: "C:\\Users\\x\\.dsh\\logs\\dsh-open-obsidian\\decisions.log",
 };
+
+/** Index of the `lastDecision` hook, named so it cannot drift silently. */
+const HOOK_LAST_DECISION = 10;
+/** Index of the `busy` hook, whose setter carries error/message state in tests. */
+const HOOK_ERROR = 9;
 let hookIndex = 0;
 const setterCalls = [];
 const React = {
@@ -92,7 +104,7 @@ const React = {
   useEffect() {},
 };
 const errorMessages = () =>
-  setterCalls.filter((call) => call.index === 8).map((call) => String(call.value));
+  setterCalls.filter((call) => call.index === HOOK_ERROR).map((call) => String(call.value));
 
 // ------------------------------------------------------------ load the panel
 
@@ -197,8 +209,8 @@ function renderPanel() {
  * the only honest way to test it.
  */
 function describeViaPanel(decision) {
-  const saved = HOOK_VALUES[9];
-  HOOK_VALUES[9] = decision;
+  const saved = HOOK_VALUES[HOOK_LAST_DECISION];
+  HOOK_VALUES[HOOK_LAST_DECISION] = decision;
   try {
     const tree = renderPanel();
     const texts = textsOf(flatten(tree));
@@ -208,7 +220,7 @@ function describeViaPanel(decision) {
     const line = texts.find((t) => t.includes("·") && t.includes(decision.vault));
     return line ?? "";
   } finally {
-    HOOK_VALUES[9] = saved;
+    HOOK_VALUES[HOOK_LAST_DECISION] = saved;
   }
 }
 
@@ -239,19 +251,26 @@ if (nodes.length > 0) {
     for (const inner of flatten(details)) insideDetails.add(inner);
   }
 
-  check("三个设置都是开关行", rows.length >= 3 && switches.length === 3,
+  // The panel ships four switches (auto-open, skip-if-open, silent-open, write
+  // lock). Assert the exact set by name rather than a count: a count goes stale
+  // every time a switch is added, and it never says which one went missing.
+  const EXPECTED_SWITCHES = [
+    "自动打开 Obsidian",
+    "目标库已打开时跳过",
+    "静默打开新窗口",
+    "写锁：一次只让一个对话写",
+  ];
+  check("四个设置都是开关行", rows.length >= 4 && switches.length === EXPECTED_SWITCHES.length,
     `rows=${rows.length} switches=${switches.length}`);
   check(
     "开关后面跟着名字",
-    labels.length === 3 &&
-      labels[0] === "自动打开 Obsidian" &&
-      labels[1].startsWith("目标库已打开时跳过") &&
-      labels[2].startsWith("静默打开新窗口"),
+    labels.length === EXPECTED_SWITCHES.length &&
+      EXPECTED_SWITCHES.every((name, i) => labels[i] && labels[i].startsWith(name)),
     JSON.stringify(labels)
   );
   check(
     "开关是 role=switch 的按钮（可点击/可无障碍）",
-    switches.length === 3 &&
+    switches.length === EXPECTED_SWITCHES.length &&
       switches.every((b) => b.type === "button" && b.props.role === "switch" &&
         typeof b.props["aria-checked"] === "string")
   );
@@ -327,8 +346,8 @@ if (nodes.length > 0) {
 
   // ---- 「高级选项」展开后不再跟「测试打开」糊成一片。
   // 测试按钮待在自己的卡片里，高级选项是面板直接的一级子块 —— 结构上互不
-  // 包含，视觉上框线天然分界。0.9.0 起用分组卡片，2026-10-09 换成统一的分组
-  // 卡片（Card/Sec/Row），这条断言盯的仍是"两块不共处一张卡"。
+  // 包含，视觉上框线天然分界。0.9.0 起用统一的分组卡片（Card/Sec/Row），
+  // 这条断言盯的仍是"两块不共处一张卡"。
   const advanced = detailsNodes.find((d) => hasClass(d, "obs-advanced"));
   const advancedInner = advanced ? new Set(flatten(advanced)) : new Set();
   const testBtnInCard = buttonNamed(nodes, "测试打开");

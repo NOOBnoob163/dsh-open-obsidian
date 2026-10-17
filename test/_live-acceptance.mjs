@@ -1,6 +1,6 @@
 /**
  * 真机验收：用**真实的插件代码** + **真实的 Obsidian** + **真实的设置/注册表**
- * 跑两个真实场景。只把 DSH 那一层壳换成假的（logger/effect/on/webServer）。
+ * 跑用户要的两个场景。只把 DSH 那一层壳换成假的（logger/effect/on/webServer）。
  *
  * 注意：这里**故意不覆盖** DSH_HOME / APPDATA —— 读的就是本机真实设置与
  * 真实 Obsidian 库列表，写的就是真实的决策日志。这正是"验收"的意义。

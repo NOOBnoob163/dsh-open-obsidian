@@ -87,6 +87,9 @@ function makeEl(tag) {
   return el;
 }
 
+// ⚠️ 这个数组必须与 lib/client.js 里 React.useState 的调用顺序一一对应。
+//    0.11.0 在中间插入了 writeLock，后面每一项的位置都往后挪了一位 ——
+//    不跟着改，日志路径会画成「（未知）」，而截图看上去只是"数据没给到"。
 const HOOK_VALUES = [
   false,        // 0  loading   —— 渲染完成态，不是"加载中…"
   true,         // 1  enabled   —— 自动打开 = 开
@@ -94,11 +97,12 @@ const HOOK_VALUES = [
   "",           // 3  command
   true,         // 4  skipOpen
   true,         // 5  silentOpen
-  false,        // 6  busy
-  null,         // 7  message
-  null,         // 8  error
-  DEMO_LAST,    // 9  lastDecision
-  "C:\\Users\\you\\.dsh\\logs\\dsh-open-obsidian\\decisions.log", // 10 logPath
+  true,         // 6  writeLock  —— 写锁 = 开
+  false,        // 7  busy
+  null,         // 8  message
+  null,         // 9  error
+  DEMO_LAST,    // 10 lastDecision
+  "C:\\Users\\you\\.dsh\\logs\\dsh-open-obsidian\\decisions.log", // 11 logPath
 ];
 let hookIndex = 0;
 /** 每个组件实例都要从 0 开始数 hook —— 忘了重置就会串位（实测：开关全画成"关"）。 */
@@ -300,3 +304,21 @@ writeFileSync(outFile, page, "utf8");
 console.log("已写出:", outFile, `(${page.length} 字符, 主题=${theme})`);
 console.log("面板节点数:", (panelHtml.match(/</g) || []).length);
 console.log("注入的 CSS 段数:", insertedCss.length);
+
+// 自检：HOOK_VALUES 与 client.js 的 useState 顺序错位时，页面会照样"渲染成功"，
+// 只是某些字段悄悄变成默认值（日志路径变成「（未知）」）——图就废了。
+// 这里直接盯着几个"数据必须显示出来"的地方，缺一个就响亮失败。
+const mustShow = [
+  ["日志路径", "decisions.log"],
+  ["写锁开关", "写锁：一次只让一个对话写"],
+  ["库列表", "C:\\Users\\you\\Documents\\Notes"],
+  ["最近一次动作", "发了第一条消息"],
+];
+const missing = mustShow.filter(([, needle]) => !page.includes(needle)).map(([what]) => what);
+if (missing.length > 0) {
+  console.error("✗ 截图内容不完整，缺:", missing.join("、"));
+  console.error("  多半是 HOOK_VALUES 的顺序跟 lib/client.js 的 useState 对不上了。");
+  process.exitCode = 1;
+} else {
+  console.log("✓ 自检通过：日志路径、写锁、库列表、最近动作都在图上");
+}
