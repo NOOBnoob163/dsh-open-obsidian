@@ -9,9 +9,11 @@ English speakers: [jump to the English version](#english).
 
 ## 它做什么
 
-当一个 DSH 会话的工作目录位于某个 Obsidian 库文件夹内时，你在那个会话里**发出第一条消息**
-的那一刻，插件会帮你在 Obsidian 里打开这个库——**这样你装的同步插件（例如坚果云同步、
-Obsidian Sync、Git 插件）就会开始工作，AI 在库里改的东西才能真正同步出去。**
+两件事，都是为了同一个目的：**让 AI 写进库里的东西真的落盘、真的同步出去。**
+
+**一、库会被自动打开。** 当一个 DSH 会话的工作目录位于某个 Obsidian 库文件夹内时，你在那个会话里
+**发出第一条消息**的那一刻，插件会帮你在 Obsidian 里打开这个库。因为**同步插件（坚果云同步、
+Obsidian Sync、Git 插件）只有在 Obsidian 开着的时候才会跑**。
 
 这是它解决的实际问题：AI 在库里写了东西，可 Obsidian 没开着，同步就不会跑——等到
 你哪天自己打开 Obsidian，改动才姗姗来迟。现在库会在对话开始时就打开，同步从那一刻起就在走。
@@ -21,6 +23,11 @@ Obsidian Sync、Git 插件）就会开始工作，AI 在库里改的东西才能
 - 库**已经开着** → 什么都不做（不新开窗口，也不抢焦点）；
 - Obsidian **已经在运行** → 新窗口压到后面，焦点立刻还给你；
 - Obsidian **没在运行** → 正常启动（这时候窗口弹出来正是你要的）。
+
+**二、同一个库同一时刻只让一个对话写。** 两个对话同时往一个库里写，同步客户端会把两边的改动
+拼在一起，结果是同一段话出现两遍、两个标题粘成一个。插件为此加了一把**写锁**：别的对话想写时，
+那一次写入会被**真正拦下**（工具不执行、一个字节不写），等前一个写完才放行。详见下面
+[写锁](#写锁一个库同时只让一个对话写)。
 
 全程在 DSH 进程内完成、不经过模型：**零 token、零轮询。**
 
@@ -35,20 +42,21 @@ Obsidian Sync、Git 插件）就会开始工作，AI 在库里改的东西才能
 | | |
 |---|---|
 | 系统 | **仅支持 Windows。** 它依赖 Windows 的进程/窗口接口、`%APPDATA%\obsidian` 注册表，以及 Obsidian 注册的 URL 协议；在 macOS / Linux 上无法工作。 |
-| DSH | 需要暴露了本插件所用内部接口的 DSH 版本（见下面「已知限制」）。 |
+| DSH | 需要暴露了本插件所用内部接口的 DSH 版本（见下面「已知限制」）。写锁还要求宿主提供 `tools/pre-execute` 钩子。 |
 | Obsidian | 桌面版 1.x。开发与实测用的是 **1.14.4**。 |
 
 ---
 
 ## 安装
 
-一条命令装好：
+一条命令装好（`--profile` 是必填的，填你实际在用的 profile 名，默认是 `desktop`）：
 
 ```sh
 dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian
 ```
 
 > `dsh` 命令不在 PATH 里时，先在应用标题栏的 **应用** 菜单点 **管理 dsh 命令…** → **安装**。
+> 它只是在桌面创建一个指向 DSH 自带命令行的小快捷方式，不会安装别的东西。
 
 本包声明了 `dsh.bundle`，所以 DSH 装完会**自动启用**它，不需要手工改任何配置。
 **装好后冷启动一次 DSH**（刷新页面不够），然后到 **设置 → Obsidian 助手** 里勾选你要管的库。
@@ -104,10 +112,43 @@ git clone https://github.com/NOOBnoob163/dsh-open-obsidian.git \
 | **检测到的知识库**（逐个库） | 全不勾 | 勾选要管的库。每个库的「已打开」状态都会拿**正在运行的** Obsidian 核实，所以关着的库不会被显示成开着。 |
 | **目标库已打开时跳过** | 开 | 已经在屏幕上的库，完全不碰。 |
 | **静默打开新窗口** | 开 | 新开的窗口压到后面，而不是让它抢走焦点。 |
+| **写锁：一次只让一个对话写** | 开 | 同一个库同时只允许一个对话写入，其他对话的写入会被拦下、排队。见下文[写锁](#写锁一个库同时只让一个对话写)。 |
 | **高级选项** | — | 可选的自定义启动命令。`{vault}` 会替换成解析出的库文件夹路径。留空 = 用 Obsidian 自己的 `obsidian://` 协议。 |
 
 每一次"打开"和"跳过"都会记进 `%USERPROFILE%\.dsh\logs\dsh-open-obsidian\decisions.log`
 （有大小上限），所以插件但凡动过手，事后都能查是哪次触发的。面板上有按钮直接打开它。
+写锁的每一次抢锁、拦下、放行也都记在同一份日志里（行首 `writelock`），排查"为什么这次没写进去"时
+就靠它。
+
+---
+
+## 写锁：一个库同时只让一个对话写
+
+**为什么要这个**：库如果交给网盘同步（坚果云、Obsidian Sync 之类），两个对话同时往里写的时候，
+同步客户端会把两边的改动拼在一起——结果就是**同一段话出现两遍**、**两个标题粘成一个**、
+**数字被接成一串乱码**。不是丢文件，是文件被拼坏，而且不容易发现。
+
+**它怎么管**：
+
+- 一个库，同一时刻只有一个对话能写。锁按**一整轮对话**持有，不是按一次写入——一轮里 AI 要写很多次，
+  中间放开就会让两边混着写。
+- 第二个对话想写的时候，**这一次写入会被直接拦下**：工具根本不会执行，一个字节都不会写进去。
+  它会收到一句普通的工具报错，说明"现在另一个对话在写"。
+- 被拦下的对话才会排进队列，等前一个写完。
+- 前一个放锁后，会**当场**通知排在最前面的那个"轮到你了"。
+
+**几条你可能想知道的**：
+
+- **通知有可能过时**，所以通知里写的是"先自己核对一下，别急着重做"：如果你看到工作区是干净的、
+  改动已经在文件里了，就别再写一遍（不然就变成重复写入了）。
+- 只有当 AI 正**在这个库里干活**时才会被管；开个对话只在搜索资料、读文件、一个字没写，
+  不会被排队，也不会被打扰。
+- 子代理不参与——它是它所在那一轮的一部分，不能被自己的助手挡住。
+- 一个对话卡死不动超过 **30 分钟**，锁会自动判定为"人已经不在了"，让下一个接手。
+  这个时间可以在设置里改（`writeLockStaleMinutes`），设成 0 就是永不接管。
+- 判断不清楚的时候**一律放行**：认不出的工具、解析不了的调用、插件内部出错，都会让这次调用过去。
+  宁可偶尔漏拦一次（锁还会照常记录），也不要把正常的工作卡住。
+- 不想要的话，把设置里的**「写锁：一次只让一个对话写」**关掉就行。
 
 ---
 
@@ -147,12 +188,14 @@ DSH 迭代很快，它一升级，插件有可能失效，需要跟着更新。�
 
 ```
 package.json                        插件清单（简介保持一句话，版本历史在 CHANGELOG.md）
-lib/index.js                        宿主半 —— 库识别、触发判定、启动
+lib/index.js                        宿主半 —— 库识别、触发判定、启动、写锁与写入闸门
 lib/client.js                       浏览器半 —— 设置页的「Obsidian 助手」面板
 bin/dsh-open-obsidian-silent.exe    编译好的助手程序：枚举窗口 + 静默打开
 src/silent-open-helper.cs           上面那个 exe 的 C# 源码
 test/behaviour.mjs                  行为回归测试（12 项）
 test/panel.mjs                      设置面板测试（28 项）
+test/writelock.mjs                  写锁测试（19 项）
+test/writelock-gate.mjs             写入闸门测试（32 项）
 ```
 
 **`bin\*.exe` 是故意一起提交的**——多数人没有 C# 编译器，而"静默打开"和"枚举 Obsidian 窗口"
@@ -170,12 +213,17 @@ test/panel.mjs                      设置面板测试（28 项）
 ## 测试
 
 ```sh
-node test/behaviour.mjs   # 12 项
-node test/panel.mjs       # 28 项
+node test/behaviour.mjs        # 12 项
+node test/panel.mjs            # 28 项
+node test/writelock.mjs        # 19 项
+node test/writelock-gate.mjs   # 32 项
 ```
 
-两套测试都用假的宿主和假的 Obsidian，不需要真的开 Obsidian，也不联网。但需要先
+四套测试都用假的宿主和假的 Obsidian，不需要真的开 Obsidian，也不联网。但需要先
 `npm install`（宿主那半要 `@deepseek-ai/schemastery` 来定义配置项）。
+
+> 测试要在**装好依赖的地方**跑。从源码仓库直接 `node test/...` 会找不到
+> `@deepseek-ai/schemastery`——先 `npm install`，或者把仓库放进 profile 的 `plugins/` 里再跑。
 
 ---
 
@@ -200,14 +248,16 @@ installing will be in Chinese.*
 
 ## What it does
 
-When a DSH conversation's working directory sits inside an Obsidian vault folder, this plugin
-opens that vault in Obsidian for you — automatically, once per conversation, when you send your
-first message.
+Two things, both for the same reason: **so that what the agent writes into a vault actually
+lands on disk and actually gets synced.**
 
-**Why that matters:** opening the vault is what makes your sync plugin (Nutstore sync, Obsidian
-Sync, a Git plugin, …) start running, so the files the agent edits actually get synced. Without
-it, the agent writes into the vault while Obsidian is closed, nothing syncs, and the changes
-only travel the next time you happen to open Obsidian yourself.
+**1. The vault gets opened.** When a DSH conversation's working directory sits inside an
+Obsidian vault folder, this plugin opens that vault in Obsidian for you — automatically, once
+per conversation, when you send your first message. Because **a sync plugin (Nutstore sync,
+Obsidian Sync, Obsidian Git) only runs while Obsidian is open.**
+
+**Why that matters:** without it, the agent writes into the vault while Obsidian is closed,
+nothing syncs, and the changes only travel the next time you happen to open Obsidian yourself.
 
 It is deliberately quiet about it:
 
@@ -215,6 +265,12 @@ It is deliberately quiet about it:
 - If Obsidian is **already running**, the new window is pushed to the back and focus is handed
   straight back to whatever you were doing.
 - If Obsidian is **not running**, it starts normally (the window appearing is the point).
+
+**2. Only one conversation may write a vault at a time.** Two conversations writing at once get
+their edits spliced together by the sync client — the same paragraph twice, two headings glued
+into one. The plugin keeps a **write lock**: another conversation's write is **actually refused**
+(the tool never runs, not a byte is written) until the holder is done. See
+[Write lock](#write-lock-one-conversation-per-vault-at-a-time).
 
 Everything runs inside the DSH process, outside the model loop: **zero tokens, zero polling.**
 
@@ -226,19 +282,20 @@ Everything runs inside the DSH process, outside the model loop: **zero tokens, z
 | | |
 |---|---|
 | OS | **Windows only.** It relies on Windows process/window APIs, `%APPDATA%\obsidian`, and Obsidian's registered URL protocol. It will not work on macOS or Linux. |
-| DSH | A DSH build that exposes the internal APIs this plugin uses (see *Known limitations*). |
+| DSH | A DSH build that exposes the internal APIs this plugin uses (see *Known limitations*). The write lock additionally needs the `tools/pre-execute` hook. |
 | Obsidian | Desktop 1.x. Developed and tested against 1.14.4. |
 
 ## Install
 
-One command:
+One command — `--profile` is required; use the profile you actually run (often `desktop`):
 
 ```sh
 dsh plugin --profile desktop add github:NOOBnoob163/dsh-open-obsidian
 ```
 
 > If `dsh` is not on your PATH, add it from the app's title bar: **应用** (Application) menu →
-> **管理 dsh 命令…** (Manage dsh Command…) → **安装** (Install).
+> **管理 dsh 命令…** (Manage dsh Command…) → **安装** (Install). It only drops a small shortcut
+> to the CLI bundled with DSH; it installs nothing else.
 
 This package declares `dsh.bundle`, so DSH **activates it automatically** — no manual config
 editing. **Cold-restart DSH once** afterwards (reloading the window is not enough), then pick
@@ -291,11 +348,45 @@ All controls save the moment you change them — there is no Save button.
 | **检测到的知识库** (per vault) | all off | Tick the vaults to manage. Each vault's `open` state is confirmed against a *running* Obsidian, so a closed vault is never shown as open. |
 | **目标库已打开时跳过** | on | A vault that is already on screen is left completely untouched. |
 | **静默打开新窗口** | on | Push a newly created vault window to the back instead of letting it steal focus. |
+| **写锁：一次只让一个对话写** | on | One writer per vault at a time; other conversations' writes are refused and queued. See [Write lock](#write-lock-one-conversation-per-vault-at-a-time). |
 | **高级选项** | — | Optional custom launch command. `{vault}` is replaced with the resolved vault folder path. Empty = use Obsidian's own `obsidian://` URI. |
 
 Every launch and every skip is appended to `%USERPROFILE%\.dsh\logs\dsh-open-obsidian\decisions.log`
 (bounded), so an unexpected launch can always be traced back to its trigger. The panel has a
-button to open that log.
+button to open that log. The write lock logs its own events there too (lines starting with
+`writelock`), which is what to read when asking "why did that write not land?".
+
+## Write lock: one conversation per vault at a time
+
+**Why it exists.** A vault synced by a file-sync client (Nutstore, Obsidian Sync, …) loses data
+when two writers touch it at once — the client splices the two versions together, which surfaces
+as the same paragraph twice, two headings glued into one, or counts concatenated into nonsense.
+It is not a lost file; it is a corrupted one, and quietly so.
+
+**How it works:**
+
+- One writer per vault at a time. The lock is held for a **whole turn**, not per file write — a
+  conversation writes many times within one turn, and releasing between those writes would let
+  two conversations interleave.
+- When a second conversation tries to write, **that write is refused outright**: the tool never
+  runs, so not a single byte is written. The caller sees an ordinary tool error saying another
+  conversation is writing.
+- Only a conversation that was actually refused is queued, to go next.
+- When the holder releases, the head of the queue is told **immediately** that it is its turn.
+
+**Worth knowing:**
+
+- **A notice can go stale**, which is why it says "check first, don't just redo": if the working
+  tree is clean and the change is already on disk, do not write it a second time.
+- Only a conversation that is actually **working in that vault** is affected. Opening a session
+  that just searches and reads, writing nothing, neither queues nor gets disturbed.
+- Subagents never participate — a subagent is part of its parent's turn, and a conversation must
+  not be blocked by its own helper.
+- A holder that goes quiet for **30 minutes** is treated as abandoned so one stuck conversation
+  cannot freeze a vault. That window is settable (`writeLockStaleMinutes`); 0 disables takeover.
+- The gate **fails open on anything it cannot parse** — unknown tool, unparseable call, internal
+  error. Missing one guard is better than stalling real work; the lock still logs it either way.
+- Turn the lock off entirely with **「写锁：一次只让一个对话写」** in Settings.
 
 ## Trigger rules
 
@@ -334,12 +425,14 @@ it is updated. Issues are welcome.
 
 ```
 package.json                        plugin manifest (short description; history in CHANGELOG.md)
-lib/index.js                        host half — vault detection, triggers, launching
+lib/index.js                        host half — vault detection, triggers, launching, write lock + gate
 lib/client.js                       browser half — the Settings → Obsidian 助手 panel
 bin/dsh-open-obsidian-silent.exe    compiled helper: window listing + silent open
 src/silent-open-helper.cs           C# source of the helper above
-test/behaviour.mjs                  behaviour regression suite  (12 assertions)
-test/panel.mjs                      settings-panel suite        (28 assertions)
+test/behaviour.mjs                  behaviour regression suite   (12 assertions)
+test/panel.mjs                      settings-panel suite         (28 assertions)
+test/writelock.mjs                  write-lock suite             (19 assertions)
+test/writelock-gate.mjs             write-gate suite             (32 assertions)
 ```
 
 `bin\*.exe` **is committed on purpose** — most users have no C# compiler, and the helper is
@@ -356,13 +449,19 @@ To rebuild the helper (Windows, .NET Framework's `csc.exe`):
 ## Tests
 
 ```sh
-node test/behaviour.mjs   # 12 assertions
-node test/panel.mjs       # 28 assertions
+node test/behaviour.mjs        # 12 assertions
+node test/panel.mjs            # 28 assertions
+node test/writelock.mjs        # 19 assertions
+node test/writelock-gate.mjs   # 32 assertions
 ```
 
-Both suites run against a fake DSH host and a fake Obsidian; they need no running Obsidian and
-no DSH network access. They do need the package dependencies (`npm install`) because the host
+All four suites run against a fake DSH host and a fake Obsidian; they need no running Obsidian
+and no DSH network access. They do need the package dependencies (`npm install`) because the host
 half imports `@deepseek-ai/schemastery` for its config schema.
+
+> Run them where dependencies are installed. From a bare source checkout `node test/...` will
+> fail to resolve `@deepseek-ai/schemastery` — either `npm install` first, or run them from inside
+> a profile's `plugins/` directory.
 
 ## License
 
